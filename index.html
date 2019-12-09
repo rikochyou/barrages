@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <title>Document</title>
+  </head>
+  <style>
+    .container {
+      text-align: center;
+    }
+    #content {
+      width: 640px;
+      margin: auto;
+      position: relative;
+    }
+    #canvas {
+      position: absolute;
+    }
+    input {
+      vertical-align: middle;
+    }
+  </style>
+  <body>
+    <div class="container">
+      <div id="content">
+        <canvas id="canvas"></canvas>
+        <video
+          src="【1080P】[MV]朴智妍(T-ara)《一分一秒》(melon) - 1.1(Av10795732,P1).mp4"
+          width="640"
+          height="360"
+          controls
+        ></video>
+      </div>
+      <input type="text" id="text" /> <button id="add">添加弹幕</button>
+      <input type="color" id="color" />
+      <input type="range" max="40" min="20" id="range" />
+    </div>
+    <script>
+      let data = [
+        {
+          value: '小姐姐我爱你',
+          speed: 2,
+          time: 0,
+          color: 'white',
+          fontSize: 20
+        },
+        {
+          value: '么么哒',
+          speed: 2,
+          time: 1,
+          color: 'gold',
+          fontSize: 20
+        },
+        {
+          value: '双手打字以示清白',
+          speed: 2,
+          time: 2,
+          color: 'red',
+          fontSize: 20
+        }
+      ];
+      let $ = document.querySelector.bind(document);
+      let canvas = $('#canvas');
+      let video = $('video');
+      class Barrage {
+        constructor(obj, ctx) {
+          this.value = obj.value;
+          this.time = obj.time;
+          this.obj = obj;
+          this.ctx = ctx;
+        }
+
+        init() {
+          console.log('init执行');
+          this.opacity = this.obj.opacity || this.ctx.opacity;
+          this.color = this.obj.color || this.ctx.color;
+          this.fontSize = this.obj.fontSize || this.ctx.fontSize;
+          this.speed = this.obj.speed || this.ctx.speed;
+          // 获取自己的宽度，用来检查是否还要继续绘制
+          let span = document.createElement('span');
+          span.innerText = this.value;
+          span.style.font = this.fontSize + 'px "Microsoft YaHei"';
+          span.style.position = 'absolute';
+          document.body.appendChild(span);
+          this.width = span.clientWidth;
+          document.body.removeChild(span);
+          // 弹幕出现位置
+          // console.log('canvas width: ', this.ctx.canvas.width);
+          this.x = this.ctx.canvas.clientWidth;
+          this.y = this.ctx.canvas.clientHeight * Math.random();
+          if (this.y < this.fontSize) {
+            this.y = this.fontSize;
+          }
+          if (this.y > this.ctx.canvas.clientHeight - this.fontSize) {
+            this.y = this.ctx.canvas.clientHeight - this.fontSize;
+          }
+        }
+        render() {
+          console.log('this1: ', this.y);
+          this.ctx.context.font = this.fontSize + 'px "Microsoft YaHei"';
+          this.ctx.context.fillStyle = this.color;
+          this.ctx.context.fillText(this.value, this.x, this.y);
+        }
+      }
+      class CanvasBarrage {
+        constructor(canvas, video, options = {}) {
+          if (!canvas || !video) return;
+          this.canvas = canvas;
+          this.video = video;
+
+          // 弹幕默认值
+          let defaultOptions = {
+            fontSize: 20,
+            color: 'white',
+            speed: 2,
+            opacity: 0.3,
+            data: []
+          };
+          // 对象合并 将属性全部挂载在实例上
+          Object.assign(this, defaultOptions, options);
+
+          // 获取canvas画布，设置画布大小
+          this.context = canvas.getContext('2d');
+          this.canvas.width = video.clientWidth;
+          this.canvas.height = video.clientHeight;
+          this.isPaused = true; // 默认暂停播放，不渲染弹幕
+          // console.log('canvas width: ', this.canvas.width);
+
+          // 存放所有弹幕
+          this.barrages = this.data.map(obj => new Barrage(obj, this));
+          console.log('barrages: ', this.barrages);
+          console.log('this', this);
+
+          // 弹幕渲染
+          this.render();
+        }
+        renderBarrage() {
+          console.log('renderBarrage');
+          let time = this.video.currentTime;
+          this.barrages.forEach(barrage => {
+            console.log('barrage: ', barrage);
+            if (!barrage.flag && time >= barrage.time) {
+              // 如果没初始化，先初始化
+              if (!barrage.isInited) {
+                barrage.init();
+                barrage.isInited = true;
+              }
+              barrage.x -= barrage.speed;
+              barrage.render(); // 渲染自己
+              if (barrage.x <= barrage.width * -1) {
+                barrage.flag = true; // 停止渲染的标记
+              }
+            }
+          });
+        }
+        render() {
+          console.log('已调用');
+          // 先进行清空上次渲染的位置
+          this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
+          this.renderBarrage();
+          if (this.isPaused === false) {
+            requestAnimationFrame(this.render.bind(this));
+          }
+        }
+        add() {
+          this.barrages.push(new Barrage(obj, this));
+        }
+        reset() {
+          this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
+          let time = this.video.currentTime;
+          this.barrages.forEach(barrage => {
+            barrage.flag = false;
+            if (time <= barrage.time) {
+              barrage.isInited = false;
+            } else {
+              barrage.flag = true;
+            }
+          });
+        }
+      }
+      let canvasBarrage;
+      console.log(canvasBarrage.render());
+      video.addEventListener('play', function() {
+        canvasBarrage.isPaused = false;
+        canvasBarrage.render();
+      });
+      video.addEventListener('pause', function() {
+        canvasBarrage.isPaused = true;
+      });
+      $('#add').addEventListener('click', function() {
+        let value = $('#text').value;
+        let time = video.currentTime;
+        let color = $('#color').value;
+        let fontSize = $('#range').value;
+        let obj = {
+          time,
+          value,
+          color,
+          fontSize
+        };
+        // canvasBarrage.add(obj);
+        socket.send(JSON.stringify(obj));
+      });
+      let socket = new WebSocket('ws//localhost:3000');
+      socket.onopen = function(e) {
+        let message = JSON.parse(e.data);
+        if (message.type === 'INIT') {
+          canvasBarrage = new CanvasBarrage(canvas, video, {
+            data: message.data
+          });
+        } else if (message.type === 'ADD') {
+          canvasBarrage.add(message.data);
+        }
+      };
+
+      video.addEventListener('seeked', function() {
+        canvasBarrage.reset();
+      });
+    </script>
+  </body>
+</html>
